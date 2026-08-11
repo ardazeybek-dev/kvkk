@@ -1,0 +1,17 @@
+# kvkk's own scan ignores itself, and it should say why.
+#
+# Everything below contains identifiers that pass their check digits but belong
+# to nobody: published documentation examples (the 4111… Visa test card, the
+# TR33… IBAN from the ISO 13616 spec) and the fixtures the test suite needs in
+# order to prove detection works at all.
+#
+# This file is exactly the mechanism the README recommends to everyone else,
+# used on the tool itself. Run `kvkk scan . --no-ignore-file` to see through it.
+
+tests
+README.md
+.github
+
+# The library demonstrates detection in its own docstrings, and those doctests
+# are executed by the test suite — the examples have to stay real.
+src/kvkk
