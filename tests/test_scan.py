@@ -52,6 +52,32 @@ def test_excerpt_masks_the_other_values_on_the_same_line() -> None:
         assert "ahmet@ornek.com" not in finding.excerpt
 
 
+def test_min_confidence_filter_does_not_expose_the_values_it_drops() -> None:
+    """Narrowing the report must never widen what the report prints."""
+    row = f"1;Ahmet Yilmaz;{VALID_TCKN};0532 123 45 67;ahmet@ornek.com"
+    findings = scan_text(row, min_confidence=Confidence.HIGH)
+
+    assert [f.kind for f in findings] == ["tckn"]
+    assert "0532 123 45 67" not in findings[0].excerpt
+    assert "ahmet@ornek.com" not in findings[0].excerpt
+
+
+def test_kind_filter_does_not_expose_the_values_it_drops() -> None:
+    row = f"{VALID_TCKN};ahmet@ornek.com"
+    findings = scan_text(row, kinds=["email"])
+
+    assert [f.kind for f in findings] == ["email"]
+    assert VALID_TCKN not in findings[0].excerpt
+
+
+def test_filtered_scan_still_centres_on_the_reported_match(tmp_path: Path) -> None:
+    target = write(tmp_path / "a.csv", f"telefon 0532 123 45 67 tckn {VALID_TCKN}")
+    finding = scan_file(target, min_confidence=Confidence.HIGH)[0]
+
+    assert finding.kind == "tckn"
+    assert "100******46" in finding.excerpt
+
+
 def test_each_finding_still_shows_its_own_match() -> None:
     row = f"{VALID_TCKN};ahmet@ornek.com"
     by_kind = {f.kind: f.excerpt for f in scan_text(row)}
