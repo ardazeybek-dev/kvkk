@@ -1,9 +1,18 @@
 name: Publish
 
-# Publishes the package to PyPI when a release is published on GitHub.
+# Publishes the package to PyPI.
+#
+# A pushed version tag is the trigger: tagging is the act that declares a
+# version, and it is a plain git operation, so releasing never depends on
+# reaching the GitHub web UI. Publishing a GitHub release still works too,
+# and the workflow can always be run by hand.
+#
 # Authentication uses trusted publishing: there is no API token stored in
 # the repository, PyPI trusts this workflow directly.
 on:
+  push:
+    tags:
+      - "v*"
   release:
     types: [published]
   workflow_dispatch:
