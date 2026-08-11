@@ -9,6 +9,7 @@ Find and mask Turkish personal data — TCKN, IBAN, VKN, payment cards, phone
 numbers, licence plates — in files, logs and database dumps. Checksum-verified,
 so it does not cry wolf. No network, no telemetry, no dependencies beyond
 [`trkit`](https://github.com/ardazeybek-dev/trkit) and `typer`.
+<img width="1237" height="996" alt="Ekran görüntüsü 2026-08-11 185938" src="https://github.com/user-attachments/assets/40c64c17-9a82-44d1-bcec-74c02842cb85" />
 
 ```bash
 pip install kvkk
