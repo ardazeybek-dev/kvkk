@@ -155,26 +155,29 @@ def iter_files(
         yield path
 
 
-def _excerpts(line: str, matches: Sequence[Match]) -> list[str]:
-    """One masked window per match, sharing a single rewrite of the line.
+def _excerpts(line: str, targets: Sequence[Match], maskable: Sequence[Match]) -> list[str]:
+    """One masked window per target, sharing a single rewrite of the line.
 
-    Every match on the line is masked before any window is cut, not just the
-    one being reported. A CSV row holds a national ID *and* a phone number; if
-    each excerpt only masked its own match, the report would hand back in
-    column two what it had just hidden in column one.
+    ``maskable`` is everything on the line that could be masked; ``targets``
+    is the subset actually being reported, and the returned windows are
+    centred on those. The two differ whenever a filter is in play: a CSV row
+    holds a national ID *and* a phone number, and ``--min-confidence high``
+    drops the phone from the report — it must not put it back in plain text in
+    the national ID's excerpt. Narrowing the report never widens what it
+    exposes.
     """
     pieces: list[str] = []
-    positions: list[tuple[int, int]] = []
+    positions: dict[tuple[int, int], tuple[int, int]] = {}
     cursor = 0
     length = 0
 
-    for match in matches:
+    for match in maskable:
         gap = line[cursor : match.start]
         pieces.append(gap)
         length += len(gap)
 
         masked = mask_value(match, Strategy.PARTIAL)
-        positions.append((length, len(masked)))
+        positions[(match.start, match.end)] = (length, len(masked))
         pieces.append(masked)
         length += len(masked)
 
@@ -183,7 +186,7 @@ def _excerpts(line: str, matches: Sequence[Match]) -> list[str]:
     pieces.append(line[cursor:])
     rebuilt = "".join(pieces)
 
-    return [_window(rebuilt, start, size) for start, size in positions]
+    return [_window(rebuilt, *positions[(t.start, t.end)]) for t in targets]
 
 
 def _window(text: str, start: int, size: int) -> str:
@@ -226,22 +229,52 @@ def _scan_lines(
         if _IGNORE_LINE_MARKER.search(line):
             continue
 
-        matches = detect(line, kinds=kinds, min_confidence=min_confidence)
-        findings.extend(_findings_for(path, number, line, matches))
+        reported = detect(line, kinds=kinds, min_confidence=min_confidence)
+        if not reported:
+            continue
+
+        maskable = _maskable_for(line, reported, kinds, min_confidence)
+        findings.extend(_findings_for(path, number, line, reported, maskable))
 
     return findings
+
+
+def _maskable_for(
+    line: str,
+    reported: Sequence[Match],
+    kinds: Sequence[str] | None,
+    min_confidence: Confidence,
+) -> list[Match]:
+    """Everything on the line that should be masked in an excerpt.
+
+    Without a filter this is exactly what is being reported. With one, the
+    unreported matches are added back — they are not findings, but they are
+    still personal data, and an excerpt must not print them.
+    """
+    if kinds is None and min_confidence is Confidence.LOW:
+        return list(reported)
+
+    combined = list(reported)
+    combined.extend(
+        match
+        for match in detect(line)
+        if not any(match.start < t.end and t.start < match.end for t in reported)
+    )
+    combined.sort(key=lambda match: match.start)
+    return combined
 
 
 def _findings_for(
     path: str,
     line_number: int,
     line: str,
-    matches: Sequence[Match],
+    targets: Sequence[Match],
+    maskable: Sequence[Match],
 ) -> list[Finding]:
-    if not matches:
+    if not targets:
         return []
 
-    excerpts = _excerpts(line, matches)
+    excerpts = _excerpts(line, targets, maskable)
     return [
         Finding(
             path=path,
@@ -250,7 +283,7 @@ def _findings_for(
             match=match,
             excerpt=excerpt,
         )
-        for match, excerpt in zip(matches, excerpts, strict=True)
+        for match, excerpt in zip(targets, excerpts, strict=True)
     ]
 
 
