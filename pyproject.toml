@@ -1,0 +1,73 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kvkk"
+dynamic = ["version"]
+description = "Find and mask Turkish personal data (TCKN, IBAN, VKN, card numbers, phones) in files, logs and databases — checksum-verified, so it does not cry wolf."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+authors = [
+    { name = "Arda Zeybek", email = "179981861+ardazeybek-dev@users.noreply.github.com" },
+]
+keywords = [
+    "kvkk", "gdpr", "pii", "anonymization", "pseudonymization", "masking",
+    "turkish", "tckn", "iban", "vkn", "data-protection", "compliance", "cli",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Legal Industry",
+    "Intended Audience :: System Administrators",
+    "Natural Language :: Turkish",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Text Processing :: Filters",
+    "Typing :: Typed",
+]
+dependencies = ["trkit>=0.1", "typer>=0.12"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.urls]
+Homepage = "https://github.com/ardazeybek-dev/kvkk"
+Repository = "https://github.com/ardazeybek-dev/kvkk"
+Issues = "https://github.com/ardazeybek-dev/kvkk/issues"
+
+[project.scripts]
+kvkk = "kvkk.cli:main"
+
+[tool.hatch.version]
+path = "src/kvkk/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kvkk"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/kvkk", "tests", "README.md", "LICENSE"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# Typer's whole API is built on calling Option()/Argument() in a default.
+"src/kvkk/cli.py" = ["B008"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

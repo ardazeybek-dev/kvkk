@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  # Keeps Turkish output from being mangled on the Windows runners.
+  PYTHONUTF8: "1"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: ruff check
+        run: ruff check .
+
+      - name: ruff format
+        run: ruff format --check .
+
+  test:
+    name: Test (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Tests
+        run: pytest
+
+  cli:
+    name: Does the installed command work
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # Installing from a wheel, not the source tree: this is the only job that
+      # would notice a broken console-script entry point or a missing module in
+      # the built package.
+      - name: Install build tools
+        run: pip install build
+
+      - name: Build and install the wheel
+        run: |
+          python -m build --wheel
+          pip install dist/*.whl
+
+      - name: Command responds
+        run: |
+          kvkk --version
+          kvkk kinds
+
+      - name: Checksum-backed detection works end to end
+        run: |
+          printf 'user=10000000146 order=12345678901\n' > sample.log
+          kvkk scan sample.log --no-color
+
+      - name: A valid identifier fails the build when asked to
+        run: |
+          if kvkk scan sample.log --fail-on high --no-color > /dev/null; then
+            echo "expected a non-zero exit for a high-confidence finding"
+            exit 1
+          fi
+
+      - name: The report does not repeat the value it is reporting
+        run: |
+          kvkk scan sample.log --no-color | tee report.txt
+          if grep -q '10000000146' report.txt; then
+            echo "the report leaked the raw value"
+            exit 1
+          fi
+
+      # The tool is held to its own README: this is the exact command the
+      # documentation tells other projects to run, and .kvkkignore is the
+      # exact mechanism it recommends for test fixtures.
+      - name: kvkk passes its own scan
+        run: |
+          rm -f sample.log report.txt
+          kvkk scan . --fail-on high --no-color
+
+  build:
+    name: Does the package build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install build tools
+        run: pip install build twine
+
+      - name: Build the package
+        run: python -m build
+
+      - name: Validate package metadata
+        run: twine check dist/*
